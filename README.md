@@ -28,7 +28,6 @@
 ├── Program.cs                           // 应用程序入口点
 ├── README.md                            // 本文件
 ├── TestJwt.http                         // HTTP 请求测试脚本
-└── WeatherForecast.cs                   // 示例控制器（非相关）
 ```
 
 ## 功能特性

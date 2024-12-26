@@ -125,5 +125,5 @@ Host: localhost:5001
 
 - [ASP.NET Core Authentication](https://docs.microsoft.com/en-us/aspnet/core/security/authentication/)
 - [JSON Web Tokens](https://jwt.io/)
-- [Knife4j Swagger](https://github.com/xiaoym/knife4j)
+- [Knife4j Swagger](https://doc.xiaominfo.com/)
 

@@ -98,8 +98,9 @@ namespace TestJwt.Tools
 
                 return expirationTime != DateTime.MinValue; // 如果解析成功，返回true，否则返回false
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "解析Token的过期时间时发生错误");
                 // 如果解析失败，设置为默认时间并返回false
                 expirationTime = DateTime.MinValue;
                 return false;

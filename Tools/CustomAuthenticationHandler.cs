@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Text.Encodings.Web;
 using System;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Security.Claims;
 
 namespace TestJwt.Tools
 {
@@ -13,22 +15,70 @@ namespace TestJwt.Tools
     /// </summary>
     public class CustomAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
+        private readonly JwtTokenProvider _jwtTokenProvider;
+
         /// <summary>
         /// 构造函数，初始化身份验证处理器。
         /// </summary>
         /// <param name="options">身份验证选项。</param>
         /// <param name="logger">日志记录工厂。</param>
         /// <param name="encoder">URL编码器。</param>
-        public CustomAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
-            : base(options, logger, encoder) { }
+        /// <param name="jwtTokenProvider">JWT Token 提供类。</param>
+        public CustomAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, JwtTokenProvider jwtTokenProvider)
+            : base(options, logger, encoder)
+        {
+            _jwtTokenProvider = jwtTokenProvider;
+        }
 
         /// <summary>
-        /// 处理身份验证逻辑。此方法未实现，因此抛出未实现异常。
+        /// 处理身份验证逻辑。此方法可以根据自己的需求进行自定义开发
         /// </summary>
         /// <returns>认证结果。</returns>
-        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            throw new NotImplementedException("此处理器未实现认证逻辑。");
+            var authorizationHeader = Request.Headers["Authorization"].ToString();
+            if (string.IsNullOrEmpty(authorizationHeader) || !authorizationHeader.StartsWith("Bearer "))
+            {
+                return AuthenticateResult.Fail("No JWT token found");
+            }
+
+            var token = authorizationHeader.Substring("Bearer ".Length).Trim();
+
+            try
+            {
+                DateTime now = DateTime.UtcNow;
+                // 是否过期
+                var time = _jwtTokenProvider.TryGetExpirationTime(token, out now);
+                Guid? userId;
+                string loginPlatform = string.Empty;
+                // 验证 JWT token
+                var is_principal_ok = _jwtTokenProvider.TryGetClaim(token, out userId, out loginPlatform);
+
+                if (!is_principal_ok)
+                {
+                    return AuthenticateResult.Fail("Invalid token");
+                }
+                if (DateTime.Now > now)
+                {
+                    return AuthenticateResult.Fail("token已过期");
+                }
+                // 初始化一个 ClaimsPrincipal
+                ClaimsPrincipal claimsPrincipal = new ClaimsPrincipal();
+
+                claimsPrincipal.AddIdentity(new ClaimsIdentity(new[]
+                {
+                  new Claim(JwtClaimTypes.UserID, userId.ToString()),
+                  new Claim(JwtClaimTypes.LoginPlatform, loginPlatform)
+               }, JwtBearerDefaults.AuthenticationScheme));
+                // 跳过角色验证，允许访问
+                var ticket = new AuthenticationTicket(claimsPrincipal, JwtBearerDefaults.AuthenticationScheme);
+                // 返回认证成功
+                return AuthenticateResult.Success(ticket);
+            }
+            catch (Exception ex)
+            {
+                return AuthenticateResult.Fail($"Token validation failed: {ex.Message}");
+            }
         }
 
         /// <summary>
